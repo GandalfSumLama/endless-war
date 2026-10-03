@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru"><head><meta charset="utf-8"><title>Endless War — обложка и иконка</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
+<style>html, body { margin: 0; background: #000; overflow: hidden; } canvas { display: block; }</style>
+</head><body>
+<!-- Обложка (#cover, 1280×720) и иконка (#icon, 512×512) из арта игры. Снимок делает tools/make-promo.ps1 (безголовый Edge). -->
+<script src="../js/art-meta-flare.js"></script>
+<script>
+'use strict';
+const MODE = location.hash.slice(1) || 'cover', W = MODE === 'icon' ? 512 : 1280, H = MODE === 'icon' ? 512 : 720;
+const cv = document.createElement('canvas'); cv.width = W; cv.height = H; document.body.appendChild(cv);
+const c = cv.getContext('2d');
+const load = s => new Promise(r => { const i = new Image(); i.onload = () => r(i); i.onerror = () => r(null); i.src = s; });
+let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+const radial = (x, y, r, stops) => { const g = c.createRadialGradient(x, y, 0, x, y, r); stops.forEach(([o, col]) => g.addColorStop(o, col)); return g; };
+
+// Картинка с цветным ореолом (контровой свет): силуэт со свечением под фигурой
+function glowDraw(im, x, y, w, h, col, blur, sx, sy, sw, sh) {
+  const args = sw ? [im, sx, sy, sw, sh, x, y, w, h] : [im, x, y, w, h];
+  c.save(); c.shadowColor = col; c.shadowBlur = blur; c.drawImage(...args); c.restore();
+  c.drawImage(...args);
+}
+// Затемнённая копия (силуэт с остатком деталей)
+function darkCopy(im, sx, sy, sw, sh, dark, tint) {
+  const t = document.createElement('canvas'); t.width = sw; t.height = sh; const x = t.getContext('2d');
+  x.drawImage(im, sx, sy, sw, sh, 0, 0, sw, sh); x.globalCompositeOperation = 'source-atop'; x.fillStyle = tint || '#0a0612'; x.globalAlpha = dark; x.fillRect(0, 0, sw, sh);
+  return t;
+}
+function embers(n, x0, y0, w, h, col) {
+  c.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < n; i++) {
+    const x = x0 + rnd() * w, y = y0 + rnd() * h, r = 1 + rnd() * 2.6, a = 0.35 + rnd() * 0.6;
+    c.fillStyle = radial(x, y, r * 4, [[0, `rgba(${col},${a})`], [1, `rgba(${col},0)`]]); c.fillRect(x - r * 4, y - r * 4, r * 8, r * 8);
+    c.fillStyle = `rgba(255,236,200,${a})`; c.beginPath(); c.arc(x, y, r * 0.5, 0, 7); c.fill();
+  }
+  c.globalCompositeOperation = 'source-over';
+}
+
+async function cover() {
+  const [wan, sca, hun, gua, mino, eye, ground] = await Promise.all(['wanderer', 'scavenger', 'hunter', 'guardian', 'minotaur', 'voideye'].map(n => load('../promo/_work/' + n + '.png')).concat([load('../art/flare/ground_ruins.jpg')]));
+  const mobs = {}; for (const k of ['goblin', 'skeleton', 'skeleton_archer', 'zombie', 'goblin_elite', 'skeleton_mage']) mobs[k] = await load('../art/flare/' + k + '.png');
+  // небо: ночь сверху, багровое зарево у горизонта
+  const HZ = 455, sky = c.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#07060f'); sky.addColorStop(0.42, '#160b26'); sky.addColorStop(0.62, '#3a0c1c'); sky.addColorStop(1, '#0a0508');
+  c.fillStyle = sky; c.fillRect(0, 0, W, H);
+  c.fillStyle = radial(860, HZ, 620, [[0, 'rgba(255,70,40,.55)'], [0.35, 'rgba(170,20,40,.28)'], [1, 'rgba(60,0,30,0)']]); c.fillRect(0, 0, W, H);
+  // Око Бездны над полем боя
+  if (eye) { c.globalAlpha = 0.5; c.fillStyle = radial(330, 120, 330, [[0, 'rgba(150,60,255,.55)'], [1, 'rgba(60,0,120,0)']]); c.fillRect(0, 0, W, H); c.drawImage(eye, 20, -60, eye.width * 0.92, eye.height * 0.92); c.globalAlpha = 1; }
+  // земля руин: тёмная, уходит в туман к горизонту
+  if (ground) {
+    c.save(); c.beginPath(); c.rect(0, HZ, W, H - HZ); c.clip(); c.globalAlpha = 0.55;
+    for (let y = HZ - 40; y < H; y += ground.height * 0.5) for (let x = 0; x < W; x += ground.width * 0.5) c.drawImage(ground, x, y, ground.width * 0.5, ground.height * 0.5);
+    c.restore(); c.globalAlpha = 1;
+    const gd = c.createLinearGradient(0, HZ - 10, 0, H); gd.addColorStop(0, 'rgba(58,12,28,1)'); gd.addColorStop(0.35, 'rgba(20,6,14,.7)'); gd.addColorStop(1, 'rgba(6,3,8,.85)');
+    c.fillStyle = gd; c.fillRect(0, HZ - 10, W, H - HZ + 10);
+  }
+  // Минотавр — босс справа, в полутени, глаза горят
+  if (mino) { const s = 0.98, mw = mino.width * s, mh = mino.height * s, mx = W - mw + 70, my = H - mh + 30;
+    glowDraw(darkCopy(mino, 0, 0, mino.width, mino.height, 0.3, '#12060a'), mx, my, mw, mh, 'rgba(255,40,30,.8)', 34); }
+  // орда: монстры игры тёмными силуэтами вдоль горизонта, ближе — крупнее
+  const kinds = Object.keys(mobs).filter(k => mobs[k] && ART_FLARE[k]);
+  const horde = []; for (let i = 0; i < 60; i++) { const d = rnd(); horde.push({ k: kinds[Math.floor(rnd() * kinds.length)], x: 540 + rnd() * 780, y: HZ + 4 + d * 230, s: 0.42 + d * 0.62, f: Math.floor(rnd() * 8) }); }
+  horde.sort((a, b) => a.y - b.y);
+  for (const m of horde) {
+    const im = mobs[m.k], A = ART_FLARE[m.k], cell = darkCopy(im, m.f * A.cw, 0, A.cw, A.ch, 0.62 - (m.s - 0.32) * 0.4, '#140812');
+    c.save(); c.translate(m.x, m.y); c.scale(-m.s, m.s);   // идут влево, на героев
+    c.shadowColor = 'rgba(255,50,40,.55)'; c.shadowBlur = 8; c.drawImage(cell, -A.ax, -A.ay); c.restore();
+  }
+  // туман у горизонта
+  c.fillStyle = radial(640, HZ + 40, 700, [[0, 'rgba(120,30,50,.0)'], [0.6, 'rgba(40,10,30,.25)'], [1, 'rgba(10,5,10,.6)']]); c.fillRect(0, 0, W, H);
+  // герои: красный контровой свет, задний ряд темнее
+  const hero = (im, cx, feet, h, dark, rim) => { if (!im) return; const w = im.width * h / im.height, x = cx - w / 2, y = feet - h;
+    glowDraw(dark ? darkCopy(im, 0, 0, im.width, im.height, dark) : im, x, y, w, h, rim, 26); };
+  hero(gua, 600, 650, 430, 0.28, 'rgba(90,255,140,.45)');
+  hero(sca, 135, 668, 520, 0.22, 'rgba(255,50,60,.6)');
+  hero(hun, 505, 690, 560, 0.12, 'rgba(80,150,255,.55)');
+  hero(wan, 320, 716, 620, 0, 'rgba(255,40,50,.75)');
+  embers(70, 0, 260, W, H - 260, '255,120,50');
+  // виньетка
+  c.fillStyle = radial(640, 380, 860, [[0.55, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.75)']]); c.fillRect(0, 0, W, H);
+  // логотип как в меню игры: ENDLESS — белый с фиолетовой тенью, WAR — оранжево-красный
+  await document.fonts.load('120px "Russo One"');
+  const LX = 985;
+  c.textAlign = 'center'; c.textBaseline = 'alphabetic';
+  c.font = '104px "Russo One"'; c.letterSpacing = '8px';
+  c.fillStyle = 'rgba(0,0,0,.6)'; c.fillText('ENDLESS', LX + 4, 214);
+  c.save(); c.shadowColor = 'rgba(138,92,255,.9)'; c.shadowBlur = 40; c.fillStyle = '#3a1e8a'; c.fillText('ENDLESS', LX, 207); c.restore();
+  const g1 = c.createLinearGradient(0, 120, 0, 205); g1.addColorStop(0, '#ffffff'); g1.addColorStop(1, '#d6ccff');
+  c.fillStyle = g1; c.fillText('ENDLESS', LX, 199);
+  c.font = '190px "Russo One"'; c.letterSpacing = '18px';
+  c.save(); c.shadowColor = 'rgba(255,60,40,.95)'; c.shadowBlur = 50; c.fillStyle = '#5a0a14'; c.fillText('WAR', LX + 6, 378); c.restore();
+  c.lineWidth = 10; c.strokeStyle = '#1a0408'; c.lineJoin = 'round'; c.strokeText('WAR', LX, 368);
+  const g2 = c.createLinearGradient(0, 230, 0, 370); g2.addColorStop(0, '#ffc07a'); g2.addColorStop(0.45, '#ff7a4a'); g2.addColorStop(1, '#ff2a4a');
+  c.fillStyle = g2; c.fillText('WAR', LX, 368);
+  c.globalCompositeOperation = 'lighter'; c.fillStyle = radial(LX, 300, 260, [[0, 'rgba(255,90,60,.18)'], [1, 'rgba(255,40,40,0)']]); c.fillRect(LX - 300, 120, 600, 320); c.globalCompositeOperation = 'source-over';
+}
+
+async function icon() {
+  const wan = await load('../promo/_work/wanderer.png');
+  c.fillStyle = radial(232, 210, 380, [[0, '#8a1424'], [0.4, '#3a0a22'], [1, '#08060f']]); c.fillRect(0, 0, W, H);
+  // магический круг за головой
+  c.save(); c.globalCompositeOperation = 'lighter';
+  for (const [r, a, lw] of [[198, 0.55, 5], [176, 0.3, 2], [222, 0.18, 2]]) { c.strokeStyle = `rgba(255,60,60,${a})`; c.lineWidth = lw; c.shadowColor = '#ff2a3a'; c.shadowBlur = 24; c.beginPath(); c.arc(232, 200, r, 0, 7); c.stroke(); }
+  c.restore();
+  embers(26, 30, 40, 452, 440, '255,90,60');
+  // Странник крупно: капюшон с горящими глазами и посох с кристаллом
+  if (wan) { const k = 1.38, sw = 372, sh = 340; glowDraw(wan, 4, 44, sw * k, sh * k, 'rgba(255,40,50,.85)', 30, 0, 0, sw, sh); }
+  // низ уходит в темноту
+  const fd = c.createLinearGradient(0, 360, 0, 512); fd.addColorStop(0, 'rgba(8,6,15,0)'); fd.addColorStop(1, 'rgba(8,6,15,.95)'); c.fillStyle = fd; c.fillRect(0, 360, W, 152);
+  c.fillStyle = radial(256, 256, 400, [[0.6, 'rgba(0,0,0,0)'], [1, 'rgba(0,0,0,.55)']]); c.fillRect(0, 0, W, H);
+}
+
+(MODE === 'icon' ? icon() : cover()).then(() => { document.title = 'done'; });
+</script>
+</body></html>

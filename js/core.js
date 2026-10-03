@@ -144,6 +144,23 @@ const Sfx = {
 };
 
 // Вибрация: Telegram → Android-мост → navigator.vibrate
+// Вибрация. В Telegram navigator.vibrate не работает — только его собственная команда web_app_trigger_haptic_feedback.
+// Шлём её напрямую клиенту Telegram (TelegramWebviewProxy): HapticFeedback из SDK молча ничего не делает, если не знает
+// версию Telegram (так бывает, когда игру открыла галерея и параметры запуска потерялись), а без initData TG вообще null.
+// «Лёгкий» удар Telegram на Android почти не ощущается (7 мс на четверти силы), поэтому наши удары идут на ступень сильнее.
+const TG_IMPACT = { light: 'medium', medium: 'heavy', heavy: 'heavy' };
+function tgHaptic(data) {
+  const P = window.TelegramWebviewProxy;
+  if (P && P.postEvent) { P.postEvent('web_app_trigger_haptic_feedback', JSON.stringify(data)); return true; }   // Telegram на телефоне
+  if (TG && TG.HapticFeedback && TG.isVersionAtLeast('6.1')) {
+    if (data.type === 'impact') TG.HapticFeedback.impactOccurred(data.impact_style); else TG.HapticFeedback.notificationOccurred(data.notification_type);
+    return true;
+  }
+  if (window.parent !== window && /tgWebApp/.test(location.hash + location.search)) {   // внутри Telegram Web (в iframe) — так же, как это делает SDK
+    window.parent.postMessage(JSON.stringify({ eventType: 'web_app_trigger_haptic_feedback', eventData: data }), '*'); return true;
+  }
+  return false;
+}
 const Haptic = {
   last: 0,
   imp(kind) {
@@ -151,16 +168,16 @@ const Haptic = {
     const n = performance.now(); if (n - this.last < 140) return; this.last = n;
     const ms = kind === 'heavy' ? 40 : kind === 'medium' ? 20 : 10;
     try {
-      if (TG && TG.HapticFeedback) TG.HapticFeedback.impactOccurred(kind || 'light');
-      else if (APP && APP.vibrate) APP.vibrate(ms);
+      if (tgHaptic({ type: 'impact', impact_style: TG_IMPACT[kind] || 'medium' })) return;
+      if (APP && APP.vibrate) APP.vibrate(ms);
       else if (navigator.vibrate) navigator.vibrate(ms);
     } catch (e) { }
   },
   note(type) {
     if (!Save.data.settings.haptics) return;
     try {
-      if (TG && TG.HapticFeedback) TG.HapticFeedback.notificationOccurred(type);
-      else if (APP && APP.vibrate) APP.vibrate(type === 'error' ? 120 : 45);
+      if (tgHaptic({ type: 'notification', notification_type: type })) return;
+      if (APP && APP.vibrate) APP.vibrate(type === 'error' ? 120 : 45);
       else if (navigator.vibrate) navigator.vibrate(type === 'error' ? 120 : 45);
     } catch (e) { }
   },

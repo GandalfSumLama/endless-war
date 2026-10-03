@@ -22,3 +22,6 @@ assets_src/
 /*.mp4
 /*.mov
 EndlessWar_art_catalog.html
+
+# Промо: вырезанные из концепт-листов герои (рабочие файлы tools/make-promo.ps1)
+promo/_work/
