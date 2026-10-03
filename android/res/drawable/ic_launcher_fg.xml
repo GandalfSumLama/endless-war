@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Временная иконка: два скрещённых клинка на фиолетовом круге. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp" android:height="108dp"
+    android:viewportWidth="108" android:viewportHeight="108">
+    <path android:fillColor="#3A1E8A" android:pathData="M54,54 m-30,0 a30,30 0 1,0 60,0 a30,30 0 1,0 -60,0" />
+    <path android:fillColor="#FF4F86" android:pathData="M36,34 L40,32 L72,68 L70,72 L66,70 Z" />
+    <path android:fillColor="#FFD23A" android:pathData="M72,34 L68,32 L36,68 L38,72 L42,70 Z" />
+    <path android:fillColor="#FFFFFF" android:pathData="M35,64 L44,73 L41,76 L32,67 Z M73,64 L64,73 L67,76 L76,67 Z" />
+</vector>

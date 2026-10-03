@@ -1,0 +1,24 @@
+# Local build outputs
+EndlessWar.apk
+*.idsig
+android/build/
+android/*.apk
+
+# Signing material and local credentials
+android/*.keystore
+android/*.jks
+.env
+.env.*
+!.env.example
+
+# Исходные паки чужого арта (у части лицензия запрещает выкладывать файлы отдельно) — в игре только нарезка из art/
+assets_src/
+
+# Листы-референсы и черновики в корне папки (игра берёт картинки только из art/)
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/*.mp4
+/*.mov
+EndlessWar_art_catalog.html

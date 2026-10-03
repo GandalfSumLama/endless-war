@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0d0a14">
+<title>Endless War</title>
+<script>
+  if (!window.AndroidApp && location.protocol.indexOf('http') === 0) {
+    const s = document.createElement('script');
+    s.src = 'https://telegram.org/js/telegram-web-app.js';
+    s.async = true;
+    s.onload = () => window.dispatchEvent(new Event('telegram-web-app-ready'));
+    document.head.appendChild(s);
+  }
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&display=swap">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="game"></canvas>
+  <button id="pauseBtn" class="hidden" aria-label="Пауза"><i></i><i></i></button>
+  <button id="dashBtn" class="hidden" aria-label="Прыжок"><span class="di"></span><span class="dcd"></span></button>
+  <div id="banner"></div>
+  <div id="ui"></div>
+  <div id="modal"></div>
+</div>
+<script src="js/art-meta.js"></script>
+<script src="js/art-meta-golems.js"></script>
+<script src="js/art-meta-mobs2.js"></script>
+<script src="js/art-meta-bosses.js"></script>
+<script src="js/art-meta-heroes.js"></script>
+<script src="js/art-meta-flare.js"></script>
+<script src="js/art-meta-flare-heroes.js"></script>
+<script src="js/art-meta-hero-cards.js"></script>
+<script src="js/art-meta-flare-world.js"></script>
+<script src="js/art-meta-flare-fx.js"></script>
+<script src="js/art-meta-spells.js"></script>
+<script src="js/i18n.js"></script>
+<script src="js/version.js"></script>
+<script src="js/data.js"></script>
+<script src="js/core.js"></script>
+<script src="js/music.js"></script>
+<script src="js/art.js"></script>
+<script src="js/ground.js"></script>
+<script src="js/heroart.js"></script>
+<script src="js/iconart.js"></script>
+<script src="js/world.js"></script>
+<script src="js/weapons.js"></script>
+<script src="js/weapons2.js"></script>
+<script src="js/game.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/lang-en.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

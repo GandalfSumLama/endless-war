@@ -1,0 +1,8 @@
+<!DOCTYPE html><meta charset="utf-8"><body style="margin:0;font:12px sans-serif">
+<script>
+const ids=['aegis','arcane_storm','thousand_blades','blood_aura','sun_vortex','soul_reaper','heaven_wrath','inferno','cyclone','absolute_zero','prism','armageddon','drone_swarm','steam_burst','storm_orbs','blood_forest','pestilence','shuriken_storm','fortress','frost_star','blade_dance','rift','meteor_shower','hurricane','night_flock'], bgs=['#15101f','#6a7a5a','#e8eef4'];
+for (const bg of bgs){const d=document.createElement('div');d.style.cssText='background:'+bg+';padding:8px;display:flex;flex-wrap:wrap;gap:6px;align-items:center';
+for(const id of ids){const i=new Image();i.src='../art/icons/'+id+'.png?'+Date.now();i.style.width='56px';d.appendChild(i);}
+for(const f of []){const i=new Image();i.src='../art/fx/'+f+'.png?'+Date.now();d.appendChild(i);}
+document.body.appendChild(d);}
+</script>
