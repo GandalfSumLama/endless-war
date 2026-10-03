@@ -138,7 +138,8 @@ const UI = {
         for (const id in d.upgrades) for (let l = 0; l < d.upgrades[id]; l++) sum += upgradeCost(id, l);
         d.coins += sum; d.upgrades = {}; Save.save(); this.shop('upgrades'); this.toast(t('Возвращено 🪙 {0}', sum)); break;
       }
-      case 'toggle': d.settings[ds.k] = !d.settings[ds.k]; Save.save(); Music.setVolume(); if (Game.state === 'paused') { el.querySelector('.sw').classList.toggle('on', !!d.settings[ds.k]); } else this.settings(); break;
+      case 'toggle': d.settings[ds.k] = !d.settings[ds.k]; Save.save(); Music.setVolume(); if (ds.k === 'saver') Game.resize();   // экономия заряда меняет плотность пикселей
+        if (Game.state === 'paused') { el.querySelector('.sw').classList.toggle('on', !!d.settings[ds.k]); } else this.settings(); break;
       case 'credits': this.credits(); break;
       case 'lang': {                                   // язык: данные переводятся при загрузке, поэтому перезапускаем страницу
         const ks = Object.keys(LANGS);
@@ -311,7 +312,7 @@ const UI = {
     const row = (k, n) => this.setRow(k, n);
     this.show(`<div class="screen">${this.hdr(t('Настройки'))}
       <div class="card set" data-a="lang"><span class="set-l">${this.setIc('lang')}${t('Язык')}</span><span class="lang-v">${LANGS[LANG]}</span></div>
-      ${row('sound', 'Звук')}${row('music', 'Музыка')}${row('haptics', 'Вибрация')}${row('numbers', 'Цифры урона')}
+      ${row('sound', 'Звук')}${row('music', 'Музыка')}${row('haptics', 'Вибрация')}${row('numbers', 'Цифры урона')}${row('saver', 'Экономия заряда')}
       <div class="grow"></div>
       <button class="btn ghost" data-a="credits">${t('👥 Авторы')}</button>
       <button class="btn danger" data-a="reset">${t('🗑 Сбросить прогресс')}</button>
@@ -324,6 +325,7 @@ const UI = {
     sound: ['#ff6a2a', '#ffc24a', '<path d="M3 9.2h3.8L12 5v14l-5.2-4.2H3z"/><path d="M15.2 8.6a4.8 4.8 0 0 1 0 6.8M17.8 6a8.4 8.4 0 0 1 0 12" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/>'],
     music: ['#b03aff', '#ff6ad2', '<path d="M19.5 3.5v11.8a2.9 2.9 0 1 1-2-2.75V7.6l-7.5 1.6v8.1a2.9 2.9 0 1 1-2-2.75V6.1z"/>'],
     haptics: ['#16b86a', '#6affb4', '<rect x="8" y="3" width="8" height="18" rx="2.2"/><rect x="9.6" y="5.2" width="4.8" height="11" rx=".8" fill="rgba(0,0,0,.28)"/><path d="M4.6 8.5v7M19.4 8.5v7M2 10.5v3M22 10.5v3" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/>'],
+    saver: ['#e0a800', '#ffe14a', '<rect x="3" y="7" width="16" height="10" rx="2.2" fill="none" stroke="#fff" stroke-width="2"/><rect x="19.6" y="10" width="2" height="4" rx=".8"/><path d="M12.4 8.6 8.6 12.6h2.8l-1 3.2 3.9-4.1h-2.8z"/>'],
     numbers: ['#e8263a', '#ff8a5a', '<text x="12" y="16.6" text-anchor="middle" font-size="11.5" font-family="Russo One, sans-serif" fill="#fff">123</text>'],
   },
   setIc(k) { const [a, b, g] = this.SET_ICONS[k]; return `<i class="set-ic" style="--a:${a};--b:${b}"><svg viewBox="0 0 24 24" fill="#fff">${g}</svg></i>`; },
@@ -556,7 +558,7 @@ const UI = {
     this.show(`<div class="overlay"><div class="ov-title">${t('ПАУЗА')}</div>
       <div class="ov-sub">${Game.stage.icon} ${Game.stage.name} · ⏱ ${fmtTime(Game.time)} · 💀 ${Game.kills} · 🪙 ${Game.coins}</div>
       ${this.buildIcons()}<div class="statgrid">${rows}</div>
-      <div class="pset">${[['sound', 'Звук'], ['music', 'Музыка'], ['haptics', 'Вибрация'], ['numbers', 'Цифры']].map(([k, n]) => this.setRow(k, n)).join('')}</div>
+      <div class="pset">${[['sound', 'Звук'], ['music', 'Музыка'], ['haptics', 'Вибрация'], ['numbers', 'Цифры'], ['saver', 'Экономия заряда']].map(([k, n]) => this.setRow(k, n)).join('')}</div>
       <button class="btn primary" data-a="resume">${t('▶ Продолжить')}</button>
       <button class="btn ghost" data-a="askquit">${t('🏳 Сдаться')}</button></div>`, "pause");
   },

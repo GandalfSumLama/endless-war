@@ -18,6 +18,8 @@ window.addEventListener('load', () => {
   }
   window.onNativeInsets = insets;                    // Android-обёртка сообщает размер выреза камеры
   Save.load();
+  if (DBG.has('saver')) Save.data.settings.saver = true;   // отладка: замер режима экономии заряда
+  if (DBG.has('nonum')) Save.data.settings.numbers = false;   // отладка: без цифр урона
   Game.init();
   UI.init();
   UI.updateInsets();

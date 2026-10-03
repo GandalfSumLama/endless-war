@@ -31,7 +31,7 @@ const Music = {
     this.level = 0; this.step = 0; this.nextT = this.ctx.currentTime + 0.1;
     this.setVolume();
     clearInterval(this.timer);
-    this.timer = setInterval(() => this.tick(), 25);
+    this.timer = setInterval(() => this.tick(), 80);
   },
   stop() { clearInterval(this.timer); this.timer = null; this.song = null; this.want = null; if (this.bus) this.bus.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2); },
   setLevel(l) { this.level = l; },
@@ -72,7 +72,7 @@ const Music = {
   tick() {
     const s = this.song; if (!s || !this.ctx) return;
     const boss = this.level >= 2, bpm = s.bpm * (boss ? 1.12 : 1), dur = 60 / bpm / 4;
-    while (this.nextT < this.ctx.currentTime + 0.15) {
+    while (this.nextT < this.ctx.currentTime + 0.3) {   // запас 0.3 с: можно будить процессор реже (раз в 80 мс), ноты всё равно ставятся по часам звука
       if (this.on() && this.duck > 0) this.playStep(this.step, this.nextT, dur, s, boss);
       this.nextT += dur; this.step++;
     }

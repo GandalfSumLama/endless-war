@@ -10,6 +10,7 @@ const Game = {
     this.ctx = this.cv.getContext('2d');
     this.resize();
     addEventListener('resize', () => this.resize());
+    if (document.fonts) document.fonts.addEventListener('loadingdone', () => { this.txtCache = null; this.hudKey = null; this.dirty = true; });   // надписи в кэше — уже нужным шрифтом
     Input.init(this.cv);
     this.last = performance.now();
     requestAnimationFrame(t => this.frame(t));
@@ -18,24 +19,34 @@ const Game = {
   resize() {
     const r = this.cv.getBoundingClientRect();
     this.W = r.width || innerWidth; this.H = r.height || innerHeight;
-    this.dpr = DBG.has('dpr1') ? 1 : DBG.has('dpr15') ? Math.min(devicePixelRatio || 1, 1.5) : Math.min(devicePixelRatio || 1, 2);
+    // плотность пикселей: не больше 2 (на iPhone 3 — это в 2.25 раза больше работы), в режиме экономии заряда — 1.25
+    const cap = DBG.has('dpr1') ? 1 : DBG.has('dpr15') ? 1.5 : Save.data && Save.data.settings.saver ? 1.25 : 2;
+    this.dpr = Math.min(devicePixelRatio || 1, cap);
     this.cv.width = Math.round(this.W * this.dpr); this.cv.height = Math.round(this.H * this.dpr);
     this.zoom = clamp(this.W / 400, 0.75, 1.6);          // css-пикселей на единицу мира
     this.viewW = this.W / this.zoom; this.viewH = this.H / this.zoom;
     this.farDist = Math.hypot(this.viewW, this.viewH) * 0.8;
+    this.dirty = true; this.txtCache = null; this.hudKey = null;
   },
 
+  // Кадр. Ради батареи: не чаще 60 раз в секунду (на экранах 120 Гц — каждый второй кадр), в режиме экономии — 30;
+  // в забеге рисуем каждый кадр, фон меню — ~15 раз в секунду, а на паузе, в окнах выбора и на итогах картинка стоит — рисуем один раз
   frame(now) {
+    requestAnimationFrame(t => this.frame(t));
+    if (now - this.last < (Save.data.settings.saver ? 30 : 13)) return;
     const dt = Math.min(0.05, (now - this.last) / 1000);
     this.last = now;
-    if (this.state === 'playing') { this.update(dt); if (this.player) UI.updateDashBtn(this.player); }
+    if (this.state === 'playing') { if (!DBG.has('noupd')) this.update(dt); if (this.player) UI.updateDashBtn(this.player); }   // noupd, nodraw — отладка: замер логики и отрисовки по отдельности
     else if (this.state === 'dying') {            // проигрываем анимацию смерти героя
       this.updateFx(dt); this.cleanup();
       if ((this.dyingT -= dt) <= 0) { this.state = 'playing'; this.end(false); }
     }
     this.menuT += dt;
+    const live = this.state === 'playing' || this.state === 'dying', menu = !this.player || this.state === 'menu';
+    if (live && DBG.has('nodraw')) return;
+    if (!live && (menu ? now - (this.menuDrawn || 0) < 66 : this.drawnState === this.state && !this.dirty)) return;
+    this.drawnState = this.state; this.dirty = false; this.menuDrawn = now;
     const d0 = performance.now(); this.draw(); this.perfStat(now, performance.now() - d0);
-    requestAnimationFrame(t => this.frame(t));
   },
 
   // Замер производительности: раз в 5 с в консоль (в APK видно в logcat): кадры/с, среднее и худшее время отрисовки
@@ -753,7 +764,7 @@ const Game = {
       this.critFxAt = this.time + 0.07;
       this.sfx('crit_slash', e.x, e.y - e.size * 0.3, 0.3, clamp(e.size / 75, 0.6, 1.3), { rot: rand(-0.5, 0.5) });
     }
-    if (Save.data.settings.numbers && (crit || this.texts.length < 70))
+    if (Save.data.settings.numbers && (crit || this.texts.length < 45))   // больше 45 цифр разом всё равно не прочитать, а каждая — операция отрисовки
       this.texts.push({ x: e.x + rand(-6, 6), y: e.y - e.r, s: Math.round(d), color: crit ? '#ffd23a' : (o.color || '#fff'), big: crit, t: 0, T: 0.7 });
     Sfx.hit();
     if (e.hp <= 0) this.kill(e);
@@ -1143,9 +1154,7 @@ const Game = {
       if (zn.fire && Art.img.fx_fire_ring) {         // огненная зона: кольцо пламени (анимация) и огонь внутри
         const im = Art.img.fx_fire_ring, fw = im.width / 6, fh = im.height, fade = Math.min(1, zn.t / 0.5, (zn.T - zn.t) / 0.2 + 0.3);
         const PP = [0, 1, 2, 3, 4, 3, 2, 1], ph = this.time * 11 + zn.x * 0.37, fr = n => zn.t < 0.35 ? 5 : PP[((Math.floor(ph + n) % 8) + 8) % 8];
-        const g = c.createRadialGradient(zn.x, zn.y, 0, zn.x, zn.y, zn.r);
-        g.addColorStop(0, 'rgba(255,200,80,.55)'); g.addColorStop(0.6, 'rgba(255,110,20,.4)'); g.addColorStop(1, 'rgba(255,60,0,0)');
-        c.globalAlpha = fade; c.fillStyle = g; c.beginPath(); c.ellipse(zn.x, zn.y, zn.r, zn.r * 0.8, 0, 0, TAU); c.fill();
+        c.globalAlpha = fade * 0.9; c.drawImage(World.glowSpr('#ff9a3a'), zn.x - zn.r, zn.y - zn.r * 0.8, zn.r * 2, zn.r * 1.6);   // жар внутри (готовый спрайт вместо градиента на каждый кадр)
         for (const [k, n, al] of [[1.25, 0, 1], [0.8, 3, 0.9], [0.42, 5, 0.85]]) {
           const w = zn.r * 2 * k, h = w * fh / fw; c.globalAlpha = fade * al;
           c.drawImage(im, fr(n) * fw, 0, fw, fh, zn.x - w / 2, zn.y - h / 2, w, h);
@@ -1270,6 +1279,12 @@ const Game = {
     }
     for (const o of vis.tall) depth.push({ y: o.y, k: 2, o });
     depth.sort((a, b) => a.y - b.y);
+    // тени врагов — одним путём и одной заливкой, до спрайтов (тень лежит на земле): 150 отдельных заливок заметно грузили отрисовку
+    if (!DBG.has('noenemy')) {
+      c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath();
+      for (const it of depth) if (it.k === 1) { const e = it.o, rx = e.r * (Art.has(this.enemyKey(e)) ? 0.8 : 1.05), sy = e.y + e.size * 0.42; c.moveTo(e.x + rx, sy); c.ellipse(e.x, sy, rx, e.r * 0.3, 0, 0, TAU); }
+      c.fill();
+    }
     for (const it of depth) {
       if (it.k === 1) { if (!DBG.has('noenemy')) this.drawEnemy(c, it.o, p); }
       else if (it.k === 2) World.drawTall(c, it.o, p);
@@ -1277,7 +1292,6 @@ const Game = {
     }
 
     // снаряды
-    if (this.bright) { c.shadowColor = "rgba(8,12,30,.9)"; c.shadowBlur = 5; }   // на снегу, в пустыне и т.п. — тёмный ореол вокруг снарядов
     for (const q of this.projs) {
       if (q.delay > 0) continue;
       if (q.w && q.w.evo && !(q.w.id === 'cyclone' || q.w.id === 'frost_star' || q.w.id === 'hurricane')) this.drawEvoGlow(c, q);   // у снарядов-иконок своё свечение
@@ -1477,7 +1491,10 @@ const Game = {
           const L = Math.min(110, f.w * 0.75), sw = -1.6 + Math.min(1, k / 0.7) * 2.6;   // от «над головой» до «вниз-вперёд»
           c.globalAlpha = 1 - Math.max(0, k - 0.55) / 0.3;
           c.save(); c.translate(p.x, p.y - 6); c.scale(f.side, 1); c.rotate(sw);
-          if (f.evo) { c.shadowColor = f.color; c.shadowBlur = 18; }   // Жнец душ: коса светится цветом эволюции
+          if (f.evo) {   // Жнец душ: коса светится цветом эволюции (готовый спрайт свечения вместо дорогого shadowBlur)
+            const gl = glowSprite(si, hexCol(f.color), 14), gk = L / si.height; c.globalCompositeOperation = 'lighter';
+            c.drawImage(gl, -L * 0.18 - 14 * gk, -L * 0.95 - 14 * gk, gl.width * gk, gl.height * gk); c.globalCompositeOperation = 'source-over';
+          }
           c.drawImage(si, -L * 0.18, -L * 0.95, L * si.width / si.height, L);
           if (f.evo) { c.globalCompositeOperation = 'lighter'; c.globalAlpha *= 0.5; c.drawImage(si, -L * 0.18, -L * 0.95, L * si.width / si.height, L); c.globalCompositeOperation = 'source-over'; c.shadowBlur = 0; }
           c.restore();
@@ -1501,18 +1518,22 @@ const Game = {
       }
       c.globalAlpha = 1;
     }
-    for (const q of this.parts) { c.globalAlpha = 1 - q.t / q.T; c.fillStyle = q.color; c.fillRect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size); }
+    if (this.parts.length) {                         // частицы: группами по цвету и прозрачности (4 ступени) — одна заливка на группу вместо сотни fillRect
+      const G = this.partG || (this.partG = new Map()); G.clear();
+      for (const q of this.parts) { const a = Math.ceil((1 - q.t / q.T) * 4); if (a <= 0) continue; const k = q.color + a; let g = G.get(k); if (!g) G.set(k, g = [q.color, a / 4]); g.push(q); }
+      for (const g of G.values()) { c.globalAlpha = g[1]; c.fillStyle = g[0]; c.beginPath(); for (let i = 2; i < g.length; i++) { const q = g[i]; c.rect(q.x - q.size / 2, q.y - q.size / 2, q.size, q.size); } c.fill(); }
+    }
     c.globalAlpha = 1;
 
-    // цифры урона
+    // цифры урона: каждая надпись рисуется один раз в маленький холст и дальше только копируется (fillText в каждом кадре — дорого)
     c.textAlign = 'center'; c.textBaseline = 'middle';
+    const TS = this.zoom * this.dpr;
     for (const t of this.texts) {
       c.globalAlpha = Math.min(1, (1 - t.t / t.T) * 2);
-      c.font = (t.big ? 'bold 15px ' : 'bold 11px ') + '"Russo One", sans-serif';
-      c.fillStyle = 'rgba(0,0,0,.7)'; c.fillText(t.s, t.x + 1, t.y + 1);
-      c.fillStyle = t.color; c.fillText(t.s, t.x, t.y);
+      const ts = this.textSpr(String(t.s), t.color, t.big), tw = ts.tw;
+      c.drawImage(ts, t.x - ts.width / TS / 2, t.y - ts.height / TS / 2, ts.width / TS, ts.height / TS);
       if (t.ic) {                                   // монета-картинка после числа («+3 🟢»)
-        const im = Art.img[t.ic], sz = t.big ? 15 : 11, tw = c.measureText(t.s).width;
+        const im = Art.img[t.ic], sz = t.big ? 15 : 11;
         if (im) c.drawImage(im, 0, 0, im.width / 3, im.height, t.x + tw / 2 + 2, t.y - sz / 2 - 1, sz, sz);
         else c.fillText(t.ic === 'fx_green_spin' ? '🟢' : '🪙', t.x + tw / 2 + 9, t.y);
       }
@@ -1540,7 +1561,6 @@ const Game = {
 
   drawEnemy(c, e, p) {
     const key = this.enemyKey(e), art = Art.has(key);
-    c.fillStyle = 'rgba(0,0,0,.28)'; c.beginPath(); c.ellipse(e.x, e.y + e.size * 0.42, e.r * (art ? 0.8 : 1.05), e.r * 0.3, 0, 0, TAU); c.fill();
     if (e.elite || e.boss) {
       c.strokeStyle = e.boss ? e.color : '#ffd23a'; c.lineWidth = 2.5; c.globalAlpha = 0.6 + Math.sin(this.time * 6) * 0.3;
       c.beginPath(); c.arc(e.x, e.y, e.size * 0.55, 0, TAU); c.stroke(); c.globalAlpha = 1;
@@ -1843,38 +1863,20 @@ const Game = {
     const d = this.dpr, W = this.W, p = this.player, top = UI.safeTop();
     c.setTransform(d, 0, 0, d, 0, 0);
     if (this.biomeFlash > 0) { c.fillStyle = "rgba(255,255,255," + this.biomeFlash * 0.85 + ")"; c.fillRect(0, 0, W, this.H); }
-    // полоска опыта
-    const bw = W - 64;
-    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(8, top + 8, bw, 14);
-    const g = c.createLinearGradient(8, 0, 8 + bw, 0); g.addColorStop(0, '#3a7bff'); g.addColorStop(1, '#6ae0ff');
-    c.fillStyle = g; c.fillRect(9, top + 9, (bw - 2) * clamp(p.xp / p.xpNext, 0, 1), 12);
-    c.font = 'bold 11px "Russo One", sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
-    c.fillStyle = '#fff'; c.fillText(t('УР. {0}', p.level), 14, top + 15.5);
-    // таймер, убийства, монеты
-    c.textAlign = 'center'; c.font = 'bold 22px "Russo One", sans-serif';
-    const tm = fmtTime(this.time);
-    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillText(tm, W / 2 + 1, top + 40);
-    c.fillStyle = '#fff'; c.fillText(tm, W / 2, top + 39);
-    if (!this.endless) {
-      c.font = '11px "Russo One", sans-serif'; c.fillStyle = '#b8a8d8';
-      c.fillText(this.time < this.stage.duration ? t('босс в {0}', fmtTime(this.stage.duration)) : t('БОСС!'), W / 2, top + 58);
+    // верх HUD (опыт, таймер, убийства, монеты, иконки навыков) рисуется в отдельный холст, только когда что-то изменилось:
+    // десятки fillText в каждом кадре заметно грели телефон. Убийства на экране обновляются не чаще 4 раз в секунду.
+    if (this.time - (this.hudKT || 0) > 0.25 || this.time < (this.hudKT || 0)) { this.hudKills = this.kills; this.hudKT = this.time; }
+    const key = [W, top, d, p.level, Math.round(clamp(p.xp / p.xpNext, 0, 1) * 120), fmtTime(this.time), this.endless || this.time < this.stage.duration, this.hudKills, this.coins, this.green,
+      p.weapons.map(w => w.id + (w.evo ? '*' : w.level)).join(), p.passives.map(x => x.id + x.level).join(), Art.img.fx_coin_spin ? 1 : 0].join('|');
+    if (key !== this.hudKey) {
+      this.hudKey = key;
+      const hc = this.hudCv || (this.hudCv = document.createElement('canvas')), hw = Math.ceil(W * d), hh = Math.ceil((top + 104) * d);
+      if (hc.width !== hw || hc.height !== hh) { hc.width = hw; hc.height = hh; }
+      const x = hc.getContext('2d'); x.setTransform(1, 0, 0, 1, 0, 0); x.clearRect(0, 0, hw, hh); x.setTransform(d, 0, 0, d, 0, 0);
+      this.drawHudTop(x, W, p, top);
     }
-    c.font = 'bold 14px "Russo One", sans-serif';
-    c.textAlign = 'left'; c.fillStyle = '#fff'; c.fillText('💀 ' + this.kills, 10, top + 40);
-    // монеты: число справа, слева от него — монета из арта (анфас); без арта — эмодзи
-    c.textAlign = 'right';
-    for (const [n, col, key, emo, y] of [[this.coins, '#ffd23a', 'fx_coin_spin', '🪙', top + 52], [this.green, '#5aff9a', 'fx_green_spin', '🟢', top + 72]]) {   // зелёные — только внутри забега
-      const im = Art.img[key], s = String(n); c.fillStyle = col;
-      if (!im) { c.fillText(emo + ' ' + s, W - 10, y); continue; }
-      c.fillText(s, W - 10, y); const tw = c.measureText(s).width, fw = im.width / 3;
-      c.drawImage(im, 0, 0, fw, im.height, W - 10 - tw - 21, y - 9, 17, 17);
-    }
-    // иконки скиллов
-    c.font = '15px sans-serif'; c.textAlign = 'center';
-    let x = 18;
-    for (const w of p.weapons) { this.hudIcon(c, w.def, "icon_" + w.id, x, top + 64); this.lvlBadge(c, x + 8, top + 71, w.evo ? '★' : w.level); x += 26; }
-    x = 18;
-    for (const ps of p.passives) { this.hudIcon(c, PASSIVES[ps.id], 'icon_' + ps.id, x, top + 88); this.lvlBadge(c, x + 8, top + 95, ps.level); x += 26; }
+    c.setTransform(1, 0, 0, 1, 0, 0); c.drawImage(this.hudCv, 0, 0); c.setTransform(d, 0, 0, d, 0, 0);
+    let x;
     // активные бустеры с таймером
     x = 18;
     for (const k in this.boosts) {
@@ -1902,6 +1904,54 @@ const Game = {
       c.globalAlpha = 1;
     }
   },
+  drawHudTop(c, W, p, top) {
+    // полоска опыта
+    const bw = W - 64;
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillRect(8, top + 8, bw, 14);
+    const g = c.createLinearGradient(8, 0, 8 + bw, 0); g.addColorStop(0, '#3a7bff'); g.addColorStop(1, '#6ae0ff');
+    c.fillStyle = g; c.fillRect(9, top + 9, (bw - 2) * clamp(p.xp / p.xpNext, 0, 1), 12);
+    c.font = 'bold 11px "Russo One", sans-serif'; c.textAlign = 'left'; c.textBaseline = 'middle';
+    c.fillStyle = '#fff'; c.fillText(t('УР. {0}', p.level), 14, top + 15.5);
+    // таймер, убийства, монеты
+    c.textAlign = 'center'; c.font = 'bold 22px "Russo One", sans-serif';
+    const tm = fmtTime(this.time);
+    c.fillStyle = 'rgba(0,0,0,.6)'; c.fillText(tm, W / 2 + 1, top + 40);
+    c.fillStyle = '#fff'; c.fillText(tm, W / 2, top + 39);
+    if (!this.endless) {
+      c.font = '11px "Russo One", sans-serif'; c.fillStyle = '#b8a8d8';
+      c.fillText(this.time < this.stage.duration ? t('босс в {0}', fmtTime(this.stage.duration)) : t('БОСС!'), W / 2, top + 58);
+    }
+    c.font = 'bold 14px "Russo One", sans-serif';
+    c.textAlign = 'left'; c.fillStyle = '#fff'; c.fillText('💀 ' + this.hudKills, 10, top + 40);
+    // монеты: число справа, слева от него — монета из арта (анфас); без арта — эмодзи
+    c.textAlign = 'right';
+    for (const [n, col, key, emo, y] of [[this.coins, '#ffd23a', 'fx_coin_spin', '🪙', top + 52], [this.green, '#5aff9a', 'fx_green_spin', '🟢', top + 72]]) {   // зелёные — только внутри забега
+      const im = Art.img[key], s = String(n); c.fillStyle = col;
+      if (!im) { c.fillText(emo + ' ' + s, W - 10, y); continue; }
+      c.fillText(s, W - 10, y); const tw = c.measureText(s).width, fw = im.width / 3;
+      c.drawImage(im, 0, 0, fw, im.height, W - 10 - tw - 21, y - 9, 17, 17);
+    }
+    // иконки скиллов
+    c.font = '15px sans-serif'; c.textAlign = 'center';
+    let x = 18;
+    for (const w of p.weapons) { this.hudIcon(c, w.def, "icon_" + w.id, x, top + 64); this.lvlBadge(c, x + 8, top + 71, w.evo ? '★' : w.level); x += 26; }
+    x = 18;
+    for (const ps of p.passives) { this.hudIcon(c, PASSIVES[ps.id], 'icon_' + ps.id, x, top + 88); this.lvlBadge(c, x + 8, top + 95, ps.level); x += 26; }
+  },
+  // Надпись в кэше: тёмная тень и цветной текст в холсте под текущий масштаб (кэш сбрасывается при смене размера и после загрузки шрифта)
+  textSpr(s, color, big) {
+    const S = this.zoom * this.dpr, key = s + '|' + color + (big ? '|b' : '');
+    let m = this.txtCache; if (!m) m = this.txtCache = new Map();
+    let cv = m.get(key); if (cv) return cv;
+    if (m.size > 400) m.clear();
+    const px = (big ? 15 : 11) * S, font = 'bold ' + px.toFixed(1) + 'px "Russo One", sans-serif';
+    cv = document.createElement('canvas'); let x = cv.getContext('2d'); x.font = font;
+    const w = x.measureText(s).width; cv.width = Math.ceil(w + S * 2 + 4); cv.height = Math.ceil(px * 1.35 + S + 2);
+    x = cv.getContext('2d'); x.font = font; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(0,0,0,.7)'; x.fillText(s, cv.width / 2 + S, cv.height / 2 + S);
+    x.fillStyle = color; x.fillText(s, cv.width / 2, cv.height / 2);
+    cv.tw = w / S; m.set(key, cv); return cv;
+  },
   // Иконка навыка в HUD: картинка (если есть) или эмодзи
   hudIcon(c, def, key, x, y) {
     const im = def.iconSrc && Art.img[key];
@@ -1919,8 +1969,10 @@ const Game = {
     c.setTransform(z, 0, 0, z, -(this.menuT * 12) % 256 * z, -(this.menuT * 6) % 256 * z);
     c.fillStyle = pat; c.fillRect(0, 0, W / z + 512, H / z + 512);
     c.setTransform(1, 0, 0, 1, 0, 0);
-    const g = c.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.max(W, H) * 0.8);
-    g.addColorStop(0, 'rgba(13,10,20,.35)'); g.addColorStop(1, 'rgba(13,10,20,.95)');
-    c.fillStyle = g; c.fillRect(0, 0, W, H);
+    if (!this.menuVig || this.menuVig.w !== W || this.menuVig.h !== H) {   // затемнение по краям — один градиент на размер экрана
+      const g = c.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, Math.max(W, H) * 0.8);
+      g.addColorStop(0, 'rgba(13,10,20,.35)'); g.addColorStop(1, 'rgba(13,10,20,.95)'); this.menuVig = { w: W, h: H, g };
+    }
+    c.fillStyle = this.menuVig.g; c.fillRect(0, 0, W, H);
   },
 };

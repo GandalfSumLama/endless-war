@@ -18,7 +18,7 @@ I18N.en = {
     'Checkmark ✓ — the skill can show up in runs. Uncheck it to remove the skill from level-up choices.',
   'в забеге {0}': 'in runs {0}', 'Эволюции и союзы': 'Evolutions and unions', 'Бустеры (редкие сундуки, 🟢 {0})': 'Boosters (rare chests, 🟢 {0})',
   'Статистика': 'Statistics', 'Забегов': 'Runs', 'Убито': 'Kills', 'Монет': 'Coins',
-  'Звук': 'Sound', 'Музыка': 'Music', 'Вибрация': 'Vibration', 'Цифры урона': 'Damage numbers', 'Цифры': 'Numbers',
+  'Звук': 'Sound', 'Музыка': 'Music', 'Вибрация': 'Vibration', 'Цифры урона': 'Damage numbers', 'Цифры': 'Numbers', 'Экономия заряда': 'Battery saver',
   'Язык': 'Language', '👥 Авторы': '👥 Credits', '🗑 Сбросить прогресс': '🗑 Reset progress', 'обновлено': 'updated',
   // авторы
   'Авторы': 'Credits', 'Герои, монстры, боссы, мир и эффекты': 'Heroes, monsters, bosses, world and effects',
